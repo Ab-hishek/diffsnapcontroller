@@ -8,11 +8,12 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/kubernetes-csi/csi-lib-utils v0.11.0
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
-	google.golang.org/grpc v1.38.0
+	google.golang.org/grpc v1.40.0
 	google.golang.org/protobuf v1.27.1
-	k8s.io/api v0.22.0
-	k8s.io/apimachinery v0.22.0
-	k8s.io/client-go v0.22.0
+	k8s.io/api v0.24.2
+	k8s.io/apimachinery v0.24.2
+	k8s.io/apiserver v0.24.2
+	k8s.io/client-go v1.5.2
 	k8s.io/code-generator v0.19.0
 	k8s.io/klog/v2 v2.60.1
 )

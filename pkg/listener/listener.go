@@ -3,13 +3,19 @@ package listener
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"net/http"
+
 	"github.com/gorilla/mux"
 	"github.com/kubernetes-csi/csi-lib-utils/connection"
 	"github.com/kubernetes-csi/csi-lib-utils/metrics"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog/v2"
+
 	changeblockservice "github.com/phuongatemc/diffsnapcontroller/pkg/changedblockservice/changed_block_service"
 	"github.com/phuongatemc/diffsnapcontroller/pkg/controller"
-	"k8s.io/klog/v2"
-	"net/http"
+	"github.com/phuongatemc/diffsnapcontroller/pkg/listener/rbac"
+	"github.com/phuongatemc/diffsnapcontroller/pkg/listener/schema"
 )
 
 var (
@@ -19,25 +25,10 @@ var (
 type Listener struct {
 	httpServer                     *mux.Router
 	differentialSnapshotGrpcClient changeblockservice.DifferentialSnapshotClient
+	kubeClient                     kubernetes.Interface
 }
 
-type ChangeBlocksResponse struct {
-	ChangeBlockList []ChangedBlock `json:"changeBlockList"`      //array of ChangedBlock
-	NextOffset      string         `json:"nextOffset,omitempty"` // StartOffset of the next “page”.
-	VolumeSize      uint64         `json:"volumeSize"`           // size of volume in bytes
-	Timeout         uint64         `json:"timeout"`              //second since epoch
-}
-
-type ChangedBlock struct {
-	Offset  uint64 `json:"offset"`            // logical offset
-	Size    uint64 `json:"size"`              // size of the block data
-	Context []byte `json:"context,omitempty"` // additional vendor specific info.  Optional.
-	ZeroOut bool   `json:"zeroOut"`           // If ZeroOut is true, this block in SnapshotTarget is zero out.
-	// This is for optimization to avoid data mover to transfer zero blocks.
-	// Not all vendors support this zeroout.
-}
-
-func NewListener(csiAddress string) (*Listener, error) {
+func NewListener(kubeClient kubernetes.Interface, csiAddress string) (*Listener, error) {
 	metricsManager := metrics.NewCSIMetricsManagerForSidecar("cbt-service")
 	//create client
 	csiConn, err := connection.Connect(
@@ -53,20 +44,28 @@ func NewListener(csiAddress string) (*Listener, error) {
 	listener := &Listener{
 		httpServer:                     mux.NewRouter(),
 		differentialSnapshotGrpcClient: cbtGrpcClient,
+		kubeClient:                     kubeClient,
 	}
 	return listener, nil
 }
 
 func (l Listener) StartListener() {
-	l.httpServer.HandleFunc("/{cr-namespace}/{cr-name}/changedblocks", l.ServeHttpRequestHandler).Methods("GET")
+	l.httpServer.HandleFunc(fmt.Sprintf("/{%s}/{%s}/changedblocks", schema.CRNamespaceParam, schema.CRNameParam), l.ServeHttpRequestHandler).Methods("GET")
+
+	// Add rbac middleware
+	am, err := rbac.NewAuthenticationMiddleware(l.kubeClient)
+	if err != nil {
+		klog.Fatalf("Failed to instantiate delegating authenticator: %v", err)
+	}
+	l.httpServer.Use(am.Middleware)
+
 	// start listening
-	err := http.ListenAndServe(listenerPort, l.httpServer)
-	klog.Fatalf("%v", err)
+	klog.Fatalf("%v", http.ListenAndServe(listenerPort, l.httpServer))
 }
 
 func (l Listener) ServeHttpRequestHandler(resp http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
-	snapshotDeltaCrName := vars["cr-name"]
+	snapshotDeltaCrName := vars[schema.CRNameParam]
 
 	// get the start-offset embedded as a query parameter in the request URL
 	startOffset := req.URL.Query().Get("startoffset")
@@ -90,10 +89,10 @@ func (l Listener) ServeHttpRequestHandler(resp http.ResponseWriter, req *http.Re
 	}
 	klog.Infof("Processed GetChangedBlocks %#v", cbs)
 
-	var changedBlocks []ChangedBlock
+	var changedBlocks []schema.ChangedBlock
 
 	for _, cb := range cbs.ChangedBlocks {
-		changedBlocks = append(changedBlocks, ChangedBlock{
+		changedBlocks = append(changedBlocks, schema.ChangedBlock{
 			Offset:  cb.Offset,
 			Size:    cb.Size,
 			Context: cb.Context,
@@ -102,7 +101,7 @@ func (l Listener) ServeHttpRequestHandler(resp http.ResponseWriter, req *http.Re
 	}
 
 	// Send a success response along with the payload
-	respondWithJSON(resp, http.StatusOK, ChangeBlocksResponse{
+	respondWithJSON(resp, http.StatusOK, schema.ChangeBlocksResponse{
 		ChangeBlockList: changedBlocks,
 		NextOffset:      cbs.NextOffSet,
 		VolumeSize:      cbs.VolumeSize,

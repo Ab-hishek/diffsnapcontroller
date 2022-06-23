@@ -353,6 +353,7 @@ func (c *Controller) updateVolumeSnapshotDeltaStatus(
 	volumeSnapshotDelta *differentialsnapshotv1alpha1.VolumeSnapshotDelta) (
 	updatedVolumeSnapshotDelta *differentialsnapshotv1alpha1.VolumeSnapshotDelta, err error) {
 	volumeSnapshotDeltaCopy := volumeSnapshotDelta.DeepCopy()
+
 	updatedVolumeSnapshotDelta, err = c.diffSnapClient.DifferentialsnapshotV1alpha1().VolumeSnapshotDeltas(
 		volumeSnapshotDelta.Namespace).UpdateStatus(context.TODO(), volumeSnapshotDeltaCopy, metav1.UpdateOptions{})
 	return
