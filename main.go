@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"flag"
 	"time"
 
@@ -29,13 +28,11 @@ import (
 
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"github.com/phuongatemc/diffsnapcontroller/pkg/controller"
 	clientset "github.com/phuongatemc/diffsnapcontroller/pkg/generated/clientset/versioned"
 	informers "github.com/phuongatemc/diffsnapcontroller/pkg/generated/informers/externalversions"
 	"github.com/phuongatemc/diffsnapcontroller/pkg/listener"
-	"github.com/phuongatemc/diffsnapcontroller/pkg/server"
 	"github.com/phuongatemc/diffsnapcontroller/pkg/signals"
 )
 
@@ -52,9 +49,6 @@ const (
 func main() {
 	klog.InitFlags(nil)
 	flag.Parse()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
@@ -86,7 +80,7 @@ func main() {
 		diffsnapInformerFactory.Differentialsnapshot().V1alpha1().VolumeSnapshotDeltas())
 
 	// create a new listener service
-	listener, err := listener.NewListener(csiAddress)
+	listener, err := listener.NewListener(kubeClient, csiAddress)
 	if err != nil {
 		klog.Fatalf("Error creating a listener service: %s", err.Error())
 	}
@@ -98,10 +92,6 @@ func main() {
 	// Start method is non-blocking and runs all registered informers in a dedicated goroutine.
 	kubeInformerFactory.Start(stopCh)
 	diffsnapInformerFactory.Start(stopCh)
-
-	// Start listner
-	l := &server.Listner{KubeClient: kubeClient}
-	go l.Run(ctx)
 
 	if err = controller.Run(2, stopCh); err != nil {
 		klog.Fatalf("Error running controller: %s", err.Error())
