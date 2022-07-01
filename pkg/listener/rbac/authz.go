@@ -2,7 +2,6 @@ package rbac
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -55,7 +54,6 @@ func GetRequestAttributes(u user.Info, r *http.Request) []authorizer.Attributes 
 	defer func() {
 		for _, attrs := range allAttrs {
 			klog.V(5).Infof("kube-rbac-proxy request attributes: attrs=%#+v", attrs)
-			fmt.Printf("%#v\n", attrs)
 		}
 	}()
 
@@ -77,17 +75,15 @@ func GetRequestAttributes(u user.Info, r *http.Request) []authorizer.Attributes 
 	params := mux.Vars(r)
 	crName := params[schema.CRNameParam]
 	crNamespace := params[schema.CRNamespaceParam]
-	fmt.Println(crNamespace + "/" + crName)
 
 	// Protect CR
 	allAttrs = append(allAttrs, authorizer.AttributesRecord{
-		User:       u,
-		Verb:       apiVerb,
-		Namespace:  crNamespace,
-		APIGroup:   differentialsnapshotv1alpha1.SchemeGroupVersion.Group,
-		APIVersion: differentialsnapshotv1alpha1.SchemeGroupVersion.Version,
-		Resource:   volumeSnapshotDeltaResource,
-		//Subresource:     n.authzConfig.ResourceAttributes.Subresource,
+		User:            u,
+		Verb:            apiVerb,
+		Namespace:       crNamespace,
+		APIGroup:        differentialsnapshotv1alpha1.SchemeGroupVersion.Group,
+		APIVersion:      differentialsnapshotv1alpha1.SchemeGroupVersion.Version,
+		Resource:        volumeSnapshotDeltaResource,
 		Name:            crName,
 		ResourceRequest: true,
 	})
