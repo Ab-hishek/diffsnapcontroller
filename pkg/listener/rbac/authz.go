@@ -17,7 +17,14 @@ import (
 	"github.com/phuongatemc/diffsnapcontroller/pkg/listener/schema"
 )
 
-const volumeSnapshotDeltaResource = "volumesnapshotdeltas"
+const (
+	volumeSnapshotDeltaResource = "volumesnapshotdeltas"
+)
+
+var (
+	delegAuthzConfigAllowCacheTTL = 5 * time.Minute
+	delegAuthzConfigDenyCacheTTL  = 30 * time.Second
+)
 
 // NewSarAuthorizer creates an authorizer compatible with the kubelet's needs
 func NewSarAuthorizer(client authorizationclient.AuthorizationV1Interface) (authorizer.Authorizer, error) {
@@ -26,8 +33,8 @@ func NewSarAuthorizer(client authorizationclient.AuthorizationV1Interface) (auth
 	}
 	authorizerConfig := authorizerfactory.DelegatingAuthorizerConfig{
 		SubjectAccessReviewClient: client,
-		AllowCacheTTL:             5 * time.Minute,
-		DenyCacheTTL:              30 * time.Second,
+		AllowCacheTTL:             delegAuthzConfigAllowCacheTTL,
+		DenyCacheTTL:              delegAuthzConfigDenyCacheTTL,
 		WebhookRetryBackoff:       options.DefaultAuthWebhookRetryBackoff(),
 	}
 	return authorizerConfig.New()

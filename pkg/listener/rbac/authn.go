@@ -22,6 +22,8 @@ type AuthenticationMiddleware struct {
 
 var (
 	_ (authenticator.Request) = (*AuthenticationMiddleware)(nil)
+
+	delegAuthnConfigCacheTTL = 2 * time.Minute
 )
 
 // NewAuthenticationMiddleware creates an authenticator compatible with the kubelet's needs
@@ -33,7 +35,7 @@ func NewAuthenticationMiddleware(kubeClient kubernetes.Interface) (*Authenticati
 
 	authenticatorConfig := authenticatorfactory.DelegatingAuthenticatorConfig{
 		Anonymous:               false, // always require authentication
-		CacheTTL:                2 * time.Minute,
+		CacheTTL:                delegAuthnConfigCacheTTL,
 		TokenAccessReviewClient: tokenClient,
 		WebhookRetryBackoff:     options.DefaultAuthWebhookRetryBackoff(),
 	}
