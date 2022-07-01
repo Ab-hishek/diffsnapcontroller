@@ -80,7 +80,7 @@ func main() {
 		diffsnapInformerFactory.Differentialsnapshot().V1alpha1().VolumeSnapshotDeltas())
 
 	// create a new listener service
-	listener, err := listener.NewListener(csiAddress)
+	listener, err := listener.NewListener(kubeClient, csiAddress)
 	if err != nil {
 		klog.Fatalf("Error creating a listener service: %s", err.Error())
 	}
